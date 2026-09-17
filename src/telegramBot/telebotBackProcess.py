@@ -117,10 +117,15 @@ class BackgroundReservationProcess:
     def _parse_reserve_option(self, option_str: str) -> ReserveOption:
         """Parse reserve option from string."""
         s = option_str.upper()
-        for opt in (ReserveOption.GENERAL_FIRST, ReserveOption.GENERAL_ONLY,
-                    ReserveOption.SPECIAL_FIRST, ReserveOption.SPECIAL_ONLY):
-            if opt.name in s:
-                return opt
+        options = (
+            ("GENERAL_FIRST", ReserveOption.GENERAL_FIRST),
+            ("GENERAL_ONLY", ReserveOption.GENERAL_ONLY),
+            ("SPECIAL_FIRST", ReserveOption.SPECIAL_FIRST),
+            ("SPECIAL_ONLY", ReserveOption.SPECIAL_ONLY),
+        )
+        for option_name, option in options:
+            if option_name in s:
+                return option
         return ReserveOption.GENERAL_FIRST
 
     def run(self):
