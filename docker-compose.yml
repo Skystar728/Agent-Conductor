@@ -1,0 +1,104 @@
+services:
+  app:
+    build: .
+    image: agent-conductor:latest
+    container_name: korail_bot
+    ports:
+      - "8000:8080"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Seoul
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
+    networks:
+      - korail_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: korail_redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env
+    command: >
+      sh -c '
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --loglevel notice --requirepass "$$REDIS_PASSWORD"
+        else
+          exec redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000 --loglevel notice
+        fi
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - korail_network
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: korail_ngrok
+    restart: unless-stopped
+    command:
+      - http
+      - app:8080
+      - --url=${NGROK_DOMAIN}
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - app
+    networks:
+      - korail_network
+
+  omniroute:
+    image: ${OMNIROUTE_IMAGE:-diegosouzapw/omniroute:latest}
+    container_name: korail_omniroute
+    profiles:
+      - omniroute
+    env_file:
+      - path: .env.omniroute
+        required: false
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: 20128
+      NODE_ENV: production
+      REQUIRE_API_KEY: "false"
+    expose:
+      - "20128"
+    ports:
+      - "127.0.0.1:20128:20128"
+    volumes:
+      - omniroute_data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.mjs"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - korail_network
+
+volumes:
+  redis_data:
+    driver: local
+  omniroute_data:
+    driver: local
+
+networks:
+  korail_network:
+    driver: bridge
