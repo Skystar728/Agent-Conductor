@@ -55,28 +55,12 @@ class CommandHandler:
             )
             self.storage.save_user_session(session)
 
-        # Check if user already has saved credentials - do NOT wipe or re-ask
-        if session.credentials and session.credentials.korail_id and session.credentials.korail_pw:
-            session.in_progress = True
-            session.last_action = UserProgress.PW_INPUT_SUCCESS
-            self.storage.save_user_session(session)
-            markup = self.telegram.build_inline_keyboard([
-                [("🔄 다른 계정으로 로그인", "CHANGE_ACCOUNT")]
-            ])
-            self.telegram.send_message(
-                chat_id,
-                f"🚂 Agent-Conductor에 오신 것을 환영합니다!\n\n"
-                f"✅ 기존 로그인 계정(`{session.credentials.korail_id}`)이 유지되어 있습니다.\n\n"
-                f"출발일(예: 2026-09-20)을 입력하시거나, 자연어로 일정을 말씀해 주세요.\n"
-                f"예: '내일 저녁 6시 서울에서 부산 2명'",
-                reply_markup=markup
-            )
-            return
-
-        # Update session state for first-time login
+        # Reset session and credentials on /start for security (always require explicit login)
+        session.reset(keep_credentials=False)
         session.in_progress = True
         session.last_action = UserProgress.STARTED
         self.storage.save_user_session(session)
+        self.storage.clear_user_credentials(chat_id)
 
         # Send welcome message with inline buttons
         markup = self.telegram.build_inline_keyboard([
@@ -96,11 +80,12 @@ class CommandHandler:
         # Cancel any running reservation
         cancelled = self.reservation.cancel_reservation(chat_id)
 
-        # Reset user session
+        # Reset user session and wipe credentials for security
         session = self.storage.get_user_session(chat_id)
         if session:
-            session.reset()
+            session.reset(keep_credentials=False)
             self.storage.save_user_session(session)
+        self.storage.clear_user_credentials(chat_id)
 
         # Clear multi-reservation status (for random seating)
         self.storage.delete_multi_reservation_status(chat_id)

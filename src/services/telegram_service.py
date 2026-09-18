@@ -108,6 +108,7 @@ class TelegramService:
         """
         commands = [
             {"command": "start", "description": "🚀 열차 여정 시작"},
+            {"command": "status", "description": "📊 현재 여정 상태 확인"},
             {"command": "cancel", "description": "❌ 진행 중인 여정 취소"},
             {"command": "help", "description": "💡 사용 방법 및 명령어 안내"},
             {"command": "edit", "description": "✏️ 여정 조건 수정"},

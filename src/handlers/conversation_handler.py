@@ -87,32 +87,13 @@ class ConversationHandler:
         progress = session.last_action
 
         if progress == UserProgress.INIT:
-            if text == "CHANGE_ACCOUNT":
-                session.credentials = None
-                session.in_progress = True
-                session.last_action = UserProgress.START_ACCEPTED
-                self.storage.save_user_session(session)
-                self.telegram.send_message(chat_id, MessageTemplates.request_phone_number())
-                return
-            if session.credentials and session.credentials.korail_id and session.credentials.korail_pw:
-                # User has credentials - allow direct date or natural language prompt without forcing /start
-                session.in_progress = True
-                session.last_action = UserProgress.PW_INPUT_SUCCESS
-                self.storage.save_user_session(session)
-                is_valid_date, _ = InputValidator.validate_date(text)
-                if is_valid_date:
-                    self._handle_date_input(chat_id, text, session)
-                else:
-                    self._handle_natural_reservation_input(chat_id, text, session)
-                return
-            else:
-                markup = self.telegram.build_inline_keyboard([[("🚀 새 여정 시작 (/start)", "/start")]])
-                self.telegram.send_message(
-                    chat_id,
-                    "🚂 Agent-Conductor\n\n진행 중인 여정 조율이 없습니다.\n/start 를 입력하거나 아래 버튼을 눌러 여정을 시작하세요.",
-                    reply_markup=markup
-                )
-                return
+            markup = self.telegram.build_inline_keyboard([[("🚀 새 여정 시작 (/start)", "/start")]])
+            self.telegram.send_message(
+                chat_id,
+                "🚂 Agent-Conductor\n\n진행 중인 여정 조율이 없습니다.\n/start 를 입력하거나 아래 버튼을 눌러 여정을 시작하세요.",
+                reply_markup=markup
+            )
+            return
 
         elif progress == UserProgress.STARTED:
             self._handle_start_confirmation(chat_id, text, session)

@@ -154,6 +154,23 @@ class TrainService:
             self._username = None
             self._password = None
 
+    @staticmethod
+    def _fix_korail_response_encoding(response, *args, **kwargs):
+        """Ensure Korail responses are decoded as UTF-8 when charset is omitted or misidentified."""
+        if response.encoding in ("ISO-8859-1", "latin-1", None):
+            response.encoding = "utf-8"
+        return response
+
+    def _create_korail_instance(self, username: str, password: str) -> K2MKorail:
+        """Create K2MKorail client with UTF-8 response encoding hook attached."""
+        instance = K2MKorail(username, password, auto_login=False)
+        try:
+            if hasattr(instance, '_session') and hasattr(instance._session, 'hooks'):
+                instance._session.hooks.setdefault('response', []).append(self._fix_korail_response_encoding)
+        except Exception as hook_err:
+            logger.debug(f"Failed to attach encoding hook to Korail session: {hook_err}")
+        return instance
+
     def login(self, username: str, password: str) -> bool:
         """
         Login to Korail with credentials.
@@ -166,7 +183,7 @@ class TrainService:
             True if login successful, False otherwise
         """
         try:
-            self._korail_instance = K2MKorail(username, password, auto_login=False)
+            self._korail_instance = self._create_korail_instance(username, password)
             self._logged_in = self._korail_instance.login()
 
             if self._logged_in:
@@ -206,7 +223,7 @@ class TrainService:
 
         logger.debug("🔄 Attempting login/re-login...")
         try:
-            self._korail_instance = K2MKorail(self._username, self._password, auto_login=False)
+            self._korail_instance = self._create_korail_instance(self._username, self._password)
             logged_in = self._korail_instance.login()
             if logged_in:
                 self._logged_in = True

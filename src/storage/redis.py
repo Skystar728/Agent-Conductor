@@ -62,12 +62,24 @@ class RedisStorage(StorageInterface):
             logger.error(f"Failed to deserialize user session: {e}")
             return None
 
-    def save_user_session(self, session: UserSession) -> None:
-        """Save or update user session."""
+    def save_user_session(self, session: UserSession, ttl_seconds: int = 86400) -> None:
+        """Save or update user session with auto-expiry TTL (default 24h for active sessions)."""
         key = f"user_session:{session.chat_id}"
         data = json.dumps(self._serialize_user_session(session))
-        self.redis.set(key, data)
+        # Keep user session short-lived to prevent forgotten lingering sessions
+        if ttl_seconds:
+            self.redis.setex(key, ttl_seconds, data)
+        else:
+            self.redis.set(key, data)
         logger.debug(f"Saved user session for chat_id={session.chat_id}")
+
+    def clear_user_credentials(self, chat_id: int) -> None:
+        """Wipe password and credentials immediately from stored session."""
+        session = self.get_user_session(chat_id)
+        if session:
+            session.credentials = None
+            self.save_user_session(session)
+            logger.info(f"Cleared user credentials from session for chat_id={chat_id}")
 
     def delete_user_session(self, chat_id: int) -> None:
         """Delete user session."""

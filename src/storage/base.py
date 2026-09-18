@@ -29,6 +29,11 @@ class StorageInterface(ABC):
         """Get all user sessions."""
         pass
 
+    @abstractmethod
+    def clear_user_credentials(self, chat_id: int) -> None:
+        """Clear user credentials from session storage immediately."""
+        pass
+
     # Running Reservation Management
     @abstractmethod
     def get_running_reservation(self, chat_id: int) -> Optional[RunningReservation]:

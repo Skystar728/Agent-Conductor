@@ -177,10 +177,11 @@ class ReservationService:
             # Clean up storage
             self.storage.delete_running_reservation(chat_id)
 
-            # Reset user session
+            # Reset user session and wipe credentials for security
             if session:
-                session.reset()
+                session.reset(keep_credentials=False)
                 self.storage.save_user_session(session)
+            self.storage.clear_user_credentials(chat_id)
 
             # Notify
             if korail_id:

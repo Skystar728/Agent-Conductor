@@ -202,23 +202,40 @@ class PaymentReminderService:
         self.storage.reset_retry_count(chat_id)
         self.storage.delete_last_search_params(chat_id)
 
+        # Security: Wipe stored credentials immediately after payment is confirmed
+        self.storage.clear_user_credentials(chat_id)
+
         # Send completion message immediately
         self._send_completion_message(chat_id)
 
+    @staticmethod
+    def _create_korail_client(username: str, password: str):
+        """Create Korail client with UTF-8 response encoding hook attached."""
+        from korail2 import Korail
+        korail = Korail(username, password, auto_login=True)
+        try:
+            if hasattr(korail, '_session') and hasattr(korail._session, 'hooks'):
+                def _fix_encoding(response, *args, **kwargs):
+                    if response.encoding in ("ISO-8859-1", "latin-1", None):
+                        response.encoding = "utf-8"
+                    return response
+                korail._session.hooks.setdefault('response', []).append(_fix_encoding)
+        except Exception as e:
+            logger.debug(f"Failed to attach encoding hook: {e}")
+        return korail
+
     def _verify_korail_payment(self, chat_id: int) -> bool:
         """
-        Verify with Korail API if tickets were actually paid and issued.
+        Verify with Korail API if tickets were actually paid and issued (want_feedback=True).
         """
         try:
             session = self.storage.get_user_session(chat_id)
             if not session or not session.credentials:
                 return False
 
-            from korail2 import Korail
-            korail = Korail(
+            korail = self._create_korail_client(
                 session.credentials.korail_id,
-                session.credentials.korail_pw,
-                auto_login=True
+                session.credentials.korail_pw
             )
             tickets = korail.tickets()
             if tickets:
@@ -245,11 +262,9 @@ class PaymentReminderService:
             if not session or not session.credentials:
                 return
 
-            from korail2 import Korail
-            korail = Korail(
+            korail = self._create_korail_client(
                 session.credentials.korail_id,
-                session.credentials.korail_pw,
-                auto_login=True
+                session.credentials.korail_pw
             )
             reserves = korail.reservations()
             if reserves:
@@ -264,7 +279,7 @@ class PaymentReminderService:
 
     def _handle_timeout_restart(self, chat_id: int) -> None:
         """
-        Handle automatic search restart after payment timeout.
+        Handle automatic search restart after payment timeout when user was absent.
         """
         try:
             # 1. Clear any remaining unpaid reservations on Korail to avoid duplicate booking collisions
@@ -278,8 +293,8 @@ class PaymentReminderService:
                 logger.info(f"Auto-restarting search on payment timeout for chat_id={chat_id} (retry {retry_count}/{self.max_retries})")
                 self.telegram.send_message(
                     chat_id,
-                    f"⏱ 10분 동안 결제가 확인되지 않아 좌석 탐색을 자동으로 다시 시작합니다!\n"
-                    f"(자동 재시도 {retry_count}/{self.max_retries}회)"
+                    f"⚠️ 부재중으로 결제 기한(10분)이 초과되어 여정 탐색을 자동으로 재시작합니다!\n"
+                    f"   (자동 재시도 {retry_count}/{self.max_retries}회)"
                 )
                 self.reservation_service.restart_reservation(chat_id, last_params)
             else:
@@ -295,6 +310,8 @@ class PaymentReminderService:
 
                 self.storage.reset_retry_count(chat_id)
                 self.storage.delete_last_search_params(chat_id)
+                # Security: Wipe stored credentials when search completely ends
+                self.storage.clear_user_credentials(chat_id)
 
         except Exception as e:
             logger.error(f"Error handling timeout restart for chat_id={chat_id}: {e}", exc_info=True)

@@ -72,14 +72,16 @@ class UserSession:
     search_params: Optional['TrainSearchParams'] = None  # Search parameters for train reservation
     editing_field: Optional[str] = None  # Field currently being edited
 
-    def reset(self) -> None:
-        """Reset user session to initial state."""
+    def reset(self, keep_credentials: bool = False) -> None:
+        """Reset user session to initial state. Wipes credentials unless explicitly requested."""
         self.in_progress = False
         self.last_action = 0
         self.train_info = {}
         self.process_id = 9999999
         self.search_params = None
         self.editing_field = None
+        if not keep_credentials:
+            self.credentials = None
 
 
 @dataclass

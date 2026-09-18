@@ -52,7 +52,8 @@ class TestAutoRestartOnTimeout(unittest.TestCase):
         # Should send restart message to user
         self.telegram.send_message.assert_called_once()
         msg = self.telegram.send_message.call_args[0][1]
-        self.assertIn("다시 시작합니다", msg)
+        self.assertIn("부재중", msg)
+        self.assertIn("재시작합니다", msg)
         self.assertIn("1/3회", msg)
 
         # Should trigger restart_reservation
