@@ -211,8 +211,8 @@ class PaymentReminderService:
     @staticmethod
     def _create_korail_client(username: str, password: str):
         """Create Korail client with UTF-8 response encoding hook attached."""
-        from korail2 import Korail
-        korail = Korail(username, password, auto_login=True)
+        from utils.korail_compat import KorailClient708
+        korail = KorailClient708(username, password, auto_login=True)
         try:
             if hasattr(korail, '_session') and hasattr(korail._session, 'hooks'):
                 def _fix_encoding(response, *args, **kwargs):

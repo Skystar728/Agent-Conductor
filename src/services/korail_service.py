@@ -162,8 +162,9 @@ class TrainService:
         return response
 
     def _create_korail_instance(self, username: str, password: str) -> K2MKorail:
-        """Create K2MKorail client with UTF-8 response encoding hook attached."""
-        instance = K2MKorail(username, password, auto_login=False)
+        """Create KorailClient708 client with UTF-8 response encoding hook attached."""
+        from utils.korail_compat import KorailClient708
+        instance = KorailClient708(username, password, auto_login=False)
         try:
             if hasattr(instance, '_session') and hasattr(instance._session, 'hooks'):
                 instance._session.hooks.setdefault('response', []).append(self._fix_korail_response_encoding)
